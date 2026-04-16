@@ -34,6 +34,12 @@ python3 game.py
 bash installer.sh
 ```
 
+Or install directly with `curl`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/<your-username>/VIBE-terminal_game/main/installer.sh | bash
+```
+
 Installs to user-local paths:
 
 - `~/.local/share/vibe-terminal-game/`
