@@ -14,7 +14,10 @@ SCRIPT_NAME="vibe-game"
 
 mkdir -p "${TARGET_DIR}" "${BIN_DIR}" "${APP_DIR}" "${MAN_DIR}"
 
-REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR=""
+if [[ -n "${BASH_SOURCE[0]:-}" ]] && [[ -f "${BASH_SOURCE[0]}" ]]; then
+  REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 LOCAL_GAME="${REPO_DIR}/game.py"
 LOCAL_README="${REPO_DIR}/README.md"
 
