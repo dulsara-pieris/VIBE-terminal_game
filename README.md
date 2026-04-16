@@ -37,7 +37,7 @@ bash installer.sh
 Or install directly with `curl`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/<your-username>/VIBE-terminal_game/main/installer.sh | bash
+curl -fsSL https://raw.githubusercontent.com/dulsara-pieris/VIBE-terminal_game/main/installer.sh | bash
 ```
 
 Installs to user-local paths:
