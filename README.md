@@ -30,14 +30,22 @@ python3 game.py
 
 ## Linux install
 
+One-line install (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dulsara-pieris/VIBE-terminal_game/main/installer.sh | bash
+```
+
+If you already cloned this repo, run:
+
 ```bash
 bash installer.sh
 ```
 
-Or install directly with `curl`:
+Then start the game with:
 
 ```bash
-curl -fsSL https://github.com/dulsara-pieris/VIBE-terminal_game/raw/refs/heads/main/installer.sh | bash -s --
+vibe-game
 ```
 
 Installs to user-local paths:
