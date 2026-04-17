@@ -34,12 +34,11 @@ python3 game.py
 bash installer.sh
 ```
 
-Or clone and install (recommended if you want to `git pull` updates later):
+Clone this repo and install:
 
 ```bash
 git clone https://github.com/dulsara-pieris/VIBE-terminal_game.git
 cd VIBE-terminal_game
-git pull --ff-only origin main
 bash installer.sh
 ```
 
