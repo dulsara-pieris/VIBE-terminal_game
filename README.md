@@ -1,14 +1,17 @@
-# VIBE Terminal Game: Sandbox Mode
+# VIBE Terminal Game: Arcade Mode
 
 A Linux-priority terminal sandbox game made with Python + curses.
 
-## What's new
+## What's new (Arcade Upgrade)
 
 - Real movement game feel (arrow keys/WASD), not menu-only text loops
 - Open sandbox zone with roaming enemies, resources, and random terrain
 - Action combat: **Space** for melee attacks
+- Combo multiplier system for kill streak scoring
+- Arcade powerups: score stars (`*`) and health orbs (`+`)
+- Dash (`E`) and bomb (`F`) abilities with charge/recharge mechanics
 - Crafting system: use gathered wood/ore/coins for healing/upgrades
-- Wave progression + score system
+- Wave progression, high-score tracking, and faster reward loops
 - Save/load support in `~/.config/vibe-terminal-game/save.json`
 
 ## Run from repo
@@ -22,6 +25,8 @@ python3 game.py
 - Move: `Arrow keys` or `W/A/S/D`
 - Attack: `Space`
 - Craft: `C`
+- Dash to nearest fight: `E`
+- Bomb nearby enemies: `F`
 - New random zone: `N`
 - Save: `P`
 - Load: `L`
