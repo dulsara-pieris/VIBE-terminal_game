@@ -25,20 +25,27 @@ fi
 LOCAL_GAME="${REPO_DIR}/game.py"
 LOCAL_README="${REPO_DIR}/README.md"
 
-REMOTE_BASE="${VIBE_GAME_REMOTE_BASE:-https://raw.githubusercontent.com/dulsara-pieris/VIBE-terminal_game/main}"
+REPO_URL="${VIBE_GAME_REPO_URL:-https://github.com/dulsara-pieris/VIBE-terminal_game.git}"
 
 if [[ -f "${LOCAL_GAME}" && -f "${LOCAL_README}" ]]; then
   install -m 755 "${LOCAL_GAME}" "${TARGET_DIR}/game.py"
   install -m 644 "${LOCAL_README}" "${TARGET_DIR}/README.md"
 else
   if [[ "${RUN_FROM_STDIN}" == "1" ]]; then
-    echo "Installer is running from a curl pipe; downloading from ${REMOTE_BASE}"
+    echo "Installer is running from a curl pipe; cloning from ${REPO_URL}"
   else
-    echo "Local repo files not found; downloading from ${REMOTE_BASE}"
+    echo "Local repo files not found; cloning from ${REPO_URL}"
   fi
-  curl -fsSL "${REMOTE_BASE}/game.py" -o "${TARGET_DIR}/game.py"
-  chmod 755 "${TARGET_DIR}/game.py"
-  curl -fsSL "${REMOTE_BASE}/README.md" -o "${TARGET_DIR}/README.md"
+
+  TMP_DIR="$(mktemp -d)"
+  cleanup_tmp() {
+    rm -rf "${TMP_DIR}"
+  }
+  trap cleanup_tmp EXIT
+
+  git clone --depth 1 "${REPO_URL}" "${TMP_DIR}/repo"
+  install -m 755 "${TMP_DIR}/repo/game.py" "${TARGET_DIR}/game.py"
+  install -m 644 "${TMP_DIR}/repo/README.md" "${TARGET_DIR}/README.md"
 fi
 
 ln -sf "${TARGET_DIR}/game.py" "${BIN_DIR}/${SCRIPT_NAME}"
