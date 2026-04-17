@@ -1,15 +1,13 @@
-# VIBE Terminal Game: Sandbox Mode
+# VIBE Terminal Game: Arcade Mode
 
-A Linux-priority terminal sandbox game made with Python + curses.
+A Linux-first arcade survival game made with Python + curses.
 
-## What's new
+## Gameplay
 
-- Real movement game feel (arrow keys/WASD), not menu-only text loops
-- Open sandbox zone with roaming enemies, resources, and random terrain
-- Action combat: **Space** for melee attacks
-- Crafting system: use gathered wood/ore/coins for healing/upgrades
-- Wave progression + score system
-- Save/load support in `~/.config/vibe-terminal-game/save.json`
+- Fast arena combat in your terminal
+- Dodge enemies, shoot projectiles, and survive waves
+- Score-based progression that ramps difficulty over time
+- Health pickups (`+`) spawn occasionally to keep runs alive
 
 ## Run from repo
 
@@ -20,24 +18,29 @@ python3 game.py
 ## Controls
 
 - Move: `Arrow keys` or `W/A/S/D`
-- Attack: `Space`
-- Craft: `C`
-- New random zone: `N`
-- Save: `P`
-- Load: `L`
-- Help hint: `H`
+- Shoot in facing direction: `Space`
+- Shoot precise direction: `I/J/K/L` (up/left/down/right)
+- Pause/resume: `H`
 - Quit: `Q`
 
 ## Linux install
+
+One-line install (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/dulsara-pieris/VIBE-terminal_game/main/installer.sh | bash
+```
+
+If you already cloned this repo, run:
 
 ```bash
 bash installer.sh
 ```
 
-Or install directly with `curl`:
+Then start the game with:
 
 ```bash
-curl -fsSL https://github.com/dulsara-pieris/VIBE-terminal_game/raw/refs/heads/main/installer.sh | bash -s --
+vibe-game
 ```
 
 Installs to user-local paths:
