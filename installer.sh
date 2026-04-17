@@ -15,7 +15,11 @@ SCRIPT_NAME="vibe-game"
 mkdir -p "${TARGET_DIR}" "${BIN_DIR}" "${APP_DIR}" "${MAN_DIR}"
 
 REPO_DIR=""
+RUN_FROM_STDIN="0"
 if [[ -n "${BASH_SOURCE[0]:-}" ]] && [[ -f "${BASH_SOURCE[0]}" ]]; then
+  if [[ "${BASH_SOURCE[0]}" == "/dev/fd/"* ]] || [[ "${BASH_SOURCE[0]}" == "/proc/self/fd/"* ]]; then
+    RUN_FROM_STDIN="1"
+  fi
   REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 fi
 LOCAL_GAME="${REPO_DIR}/game.py"
@@ -27,7 +31,11 @@ if [[ -f "${LOCAL_GAME}" && -f "${LOCAL_README}" ]]; then
   install -m 755 "${LOCAL_GAME}" "${TARGET_DIR}/game.py"
   install -m 644 "${LOCAL_README}" "${TARGET_DIR}/README.md"
 else
-  echo "Local repo files not found; downloading from ${REMOTE_BASE}"
+  if [[ "${RUN_FROM_STDIN}" == "1" ]]; then
+    echo "Installer is running from a curl pipe; downloading from ${REMOTE_BASE}"
+  else
+    echo "Local repo files not found; downloading from ${REMOTE_BASE}"
+  fi
   curl -fsSL "${REMOTE_BASE}/game.py" -o "${TARGET_DIR}/game.py"
   chmod 755 "${TARGET_DIR}/game.py"
   curl -fsSL "${REMOTE_BASE}/README.md" -o "${TARGET_DIR}/README.md"
