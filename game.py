@@ -44,6 +44,11 @@ class State:
     ore: int = 0
     score: int = 0
     wave: int = 1
+    combo: int = 0
+    combo_timer: int = 0
+    dash_charges: int = 2
+    bomb_charges: int = 1
+    high_score: int = 0
     terrain_seed: int = field(default_factory=lambda: random.randint(1, 999999))
 
 
@@ -52,6 +57,7 @@ class SandboxGame:
         self.state = State()
         self.msg = "Welcome! Move with arrows/WASD, gather resources, fight enemies, and press H for guided help."
         self.enemies: list[Enemy] = []
+        self.powerups: dict[tuple[int, int], str] = {}
         self.tiles: list[list[str]] = []
         self.rng = random.Random(self.state.terrain_seed)
         self.show_help = True
@@ -82,6 +88,8 @@ class SandboxGame:
             "$": curses.color_pair(COLOR_COIN) | curses.A_BOLD,
             "@": curses.color_pair(COLOR_PLAYER) | curses.A_BOLD,
             "g": curses.color_pair(COLOR_ENEMY) | curses.A_BOLD,
+            "*": curses.color_pair(COLOR_COIN) | curses.A_BOLD,
+            "+": curses.color_pair(COLOR_TREE) | curses.A_BOLD,
             ".": curses.color_pair(COLOR_DEFAULT),
         }
         return palette.get(ch, curses.color_pair(COLOR_DEFAULT))
@@ -115,16 +123,38 @@ class SandboxGame:
                     self.enemies.append(Enemy(ex, ey, 18 + self.state.wave * 3))
                     break
 
+        self.powerups = {}
+        for _ in range(2):
+            px, py = self.random_floor_tile()
+            self.powerups[(px, py)] = "*"  # score star
+        if self.state.wave % 2 == 0:
+            px, py = self.random_floor_tile()
+            self.powerups[(px, py)] = "+"  # hp orb
+
+    def random_floor_tile(self) -> tuple[int, int]:
+        for _ in range(200):
+            x, y = self.rng.randint(1, MAP_W - 2), self.rng.randint(1, MAP_H - 2)
+            if (
+                self.tiles[y][x] == "."
+                and (x, y) != (self.state.x, self.state.y)
+                and not any((e.x, e.y) == (x, y) for e in self.enemies)
+            ):
+                return x, y
+        return 1, 1
+
     def draw(self, stdscr: curses.window) -> None:
         stdscr.erase()
         hud = (
             f"HP {self.state.hp}/{self.state.max_hp} | Coins {self.state.coins} | "
-            f"Wood {self.state.wood} | Ore {self.state.ore} | Wave {self.state.wave} | Score {self.state.score}"
+            f"Wood {self.state.wood} | Ore {self.state.ore} | Wave {self.state.wave} | "
+            f"Combo x{max(1, self.state.combo)} | Score {self.state.score}"
         )
         stdscr.addstr(0, 0, hud[: MAP_W + 25])
-        stdscr.addstr(1, 0, self.msg[: MAP_W + 25])
-        legend = "Legend: @ you  g enemy  ~ water  T tree  O ore  $ coins  . path"
-        stdscr.addstr(2, 0, legend[: MAP_W + 25])
+        action_bar = f"Dash(E): {self.state.dash_charges}  Bomb(F): {self.state.bomb_charges}  High score: {self.state.high_score}"
+        stdscr.addstr(1, 0, action_bar[: MAP_W + 25])
+        stdscr.addstr(2, 0, self.msg[: MAP_W + 25])
+        legend = "Legend: @ you g enemy * star + hp ~ water T tree O ore $ coins"
+        stdscr.addstr(3, 0, legend[: MAP_W + 25])
 
         enemy_positions = {(e.x, e.y): e for e in self.enemies}
         for y in range(MAP_H):
@@ -133,6 +163,8 @@ class SandboxGame:
                     ch = "@"
                 elif (x, y) in enemy_positions:
                     ch = "g"
+                elif (x, y) in self.powerups:
+                    ch = self.powerups[(x, y)]
                 else:
                     ch = self.tiles[y][x]
                 stdscr.addch(MAP_TOP + y, x, ch, self.style_for_tile(ch))
@@ -141,8 +173,8 @@ class SandboxGame:
                 "How to play (press H to hide/show):",
                 "1) Explore and collect: walk onto T/O/$ tiles to gather resources.",
                 "2) Fight nearby enemies with SPACE to earn score and coins.",
-                "3) Craft with C: heal (3 wood + 1 ore) or armor (2 wood + 12 coins).",
-                "4) Survive waves, press N for a new zone after clearing enemies.",
+                "3) Chain enemy kills for combo multipliers and huge score boosts.",
+                "4) Use E to dash and F to blast nearby enemies.",
                 "5) Save with P, load with L, and quit with Q.",
             ]
             for idx, line in enumerate(help_lines):
@@ -155,6 +187,17 @@ class SandboxGame:
         return self.tiles[y][x] != "~"
 
     def collect_tile(self) -> None:
+        pos = (self.state.x, self.state.y)
+        if pos in self.powerups:
+            power = self.powerups.pop(pos)
+            if power == "*":
+                self.state.score += 25
+                self.state.combo_timer = max(self.state.combo_timer, 8)
+                self.msg = "Star collected! +25 score and combo timer boosted."
+            elif power == "+":
+                self.state.hp = min(self.state.max_hp, self.state.hp + 18)
+                self.msg = "HP orb grabbed! +18 HP."
+
         t = self.tiles[self.state.y][self.state.x]
         if t == "T":
             self.state.wood += 1
@@ -184,6 +227,7 @@ class SandboxGame:
 
     def attack(self) -> None:
         hits = 0
+        kills = 0
         for enemy in list(self.enemies):
             if abs(enemy.x - self.state.x) <= 1 and abs(enemy.y - self.state.y) <= 1:
                 dmg = random.randint(8, 16)
@@ -192,11 +236,58 @@ class SandboxGame:
                 if enemy.hp <= 0:
                     self.enemies.remove(enemy)
                     self.state.coins += 6
-                    self.state.score += 10
+                    kills += 1
+                    self.state.score += 10 * max(1, self.state.combo)
         if hits == 0:
             self.msg = "No enemy in range."
+            self.state.combo = 0
         else:
-            self.msg = f"Slash hits {hits} enemy(ies)!"
+            if kills > 0:
+                self.state.combo = min(9, self.state.combo + kills)
+                self.state.combo_timer = 12
+            self.msg = f"Slash hits {hits} enemy(ies)! Kills: {kills}."
+
+    def dash(self) -> None:
+        if self.state.dash_charges <= 0:
+            self.msg = "No dash charges. Clear a wave to refill!"
+            return
+        self.state.dash_charges -= 1
+        best_enemy = min(self.enemies, key=lambda e: abs(e.x - self.state.x) + abs(e.y - self.state.y), default=None)
+        if not best_enemy:
+            self.msg = "Dash fizzled. No enemies found."
+            return
+        candidates = [
+            (best_enemy.x + 1, best_enemy.y),
+            (best_enemy.x - 1, best_enemy.y),
+            (best_enemy.x, best_enemy.y + 1),
+            (best_enemy.x, best_enemy.y - 1),
+        ]
+        self.rng.shuffle(candidates)
+        for nx, ny in candidates:
+            if self.can_walk(nx, ny):
+                self.state.x, self.state.y = nx, ny
+                break
+        self.collect_tile()
+        self.msg = "Arcade dash! You're back in the action."
+
+    def bomb(self) -> None:
+        if self.state.bomb_charges <= 0:
+            self.msg = "No bombs left."
+            return
+        self.state.bomb_charges -= 1
+        removed = 0
+        for enemy in list(self.enemies):
+            if abs(enemy.x - self.state.x) <= 2 and abs(enemy.y - self.state.y) <= 2:
+                self.enemies.remove(enemy)
+                removed += 1
+        if removed:
+            self.state.coins += removed * 5
+            self.state.score += removed * 14 * max(1, self.state.combo)
+            self.state.combo = min(9, self.state.combo + removed)
+            self.state.combo_timer = 10
+            self.msg = f"BOOM! Removed {removed} enemies."
+        else:
+            self.msg = "Bomb exploded... but no enemies were nearby."
 
     def craft(self) -> None:
         if self.state.wood >= 3 and self.state.ore >= 1:
@@ -216,6 +307,11 @@ class SandboxGame:
             self.msg = "Need (3 wood+1 ore) to heal OR (2 wood+12 coins) for armor."
 
     def enemy_turn(self) -> None:
+        if self.state.combo_timer > 0:
+            self.state.combo_timer -= 1
+            if self.state.combo_timer == 0:
+                self.state.combo = 0
+
         for enemy in self.enemies:
             dx = self.state.x - enemy.x
             dy = self.state.y - enemy.y
@@ -240,7 +336,11 @@ class SandboxGame:
         if not self.enemies:
             self.state.wave += 1
             self.state.score += 25
-            self.msg = "Wave cleared! Press N for a fresh zone."
+            self.state.dash_charges = min(3, self.state.dash_charges + 1)
+            self.state.bomb_charges = min(2, self.state.bomb_charges + 1)
+            self.msg = "Wave cleared! Dash/Bomb recharged. Press N for a fresh zone."
+
+        self.state.high_score = max(self.state.high_score, self.state.score)
 
     def save(self) -> None:
         SAVE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -255,7 +355,10 @@ class SandboxGame:
             return
         with SAVE_PATH.open("r", encoding="utf-8") as f:
             payload = json.load(f)
-        self.state = State(**payload["state"])
+        saved_state = payload["state"]
+        defaults = asdict(State())
+        defaults.update(saved_state)
+        self.state = State(**defaults)
         self.enemies = [Enemy(**e) for e in payload["enemies"]]
         self.tiles = payload["tiles"]
         self.msg = f"Loaded save. Wave {self.state.wave}."
@@ -275,6 +378,10 @@ class SandboxGame:
             self.attack()
         elif key in (ord("c"), ord("C")):
             self.craft()
+        elif key in (ord("e"), ord("E")):
+            self.dash()
+        elif key in (ord("f"), ord("F")):
+            self.bomb()
         elif key in (ord("n"), ord("N")):
             self.state.terrain_seed = random.randint(1, 999999)
             self.make_world()
@@ -316,8 +423,13 @@ def smoke_test() -> None:
     game = SandboxGame()
     for _ in range(10):
         game.move_player(random.choice([-1, 0, 1]), random.choice([-1, 0, 1]))
+        if random.random() < 0.2:
+            game.dash()
+        if random.random() < 0.1:
+            game.bomb()
         game.enemy_turn()
     assert game.state.max_hp >= 100
+    assert game.state.high_score >= game.state.score
     print("smoke-ok")
 
 
