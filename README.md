@@ -34,10 +34,13 @@ python3 game.py
 bash installer.sh
 ```
 
-Or install directly with `curl`:
+Or clone and install (recommended if you want to `git pull` updates later):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/dulsara-pieris/VIBE-terminal_game/main/installer.sh | bash
+git clone https://github.com/dulsara-pieris/VIBE-terminal_game.git
+cd VIBE-terminal_game
+git pull --ff-only origin main
+bash installer.sh
 ```
 
 Installs to user-local paths:
