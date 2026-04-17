@@ -15,6 +15,15 @@ APP_NAME = "vibe-terminal-game"
 SAVE_PATH = Path.home() / ".config" / APP_NAME / "save.json"
 MAP_W = 58
 MAP_H = 22
+MAP_TOP = 4
+
+COLOR_DEFAULT = 1
+COLOR_WATER = 2
+COLOR_TREE = 3
+COLOR_ORE = 4
+COLOR_COIN = 5
+COLOR_PLAYER = 6
+COLOR_ENEMY = 7
 
 
 @dataclass
@@ -41,11 +50,41 @@ class State:
 class SandboxGame:
     def __init__(self) -> None:
         self.state = State()
-        self.msg = "Move with arrows/WASD. SPACE attacks. C crafts. N new zone. P save, L load. Q quit."
+        self.msg = "Welcome! Move with arrows/WASD, gather resources, fight enemies, and press H for guided help."
         self.enemies: list[Enemy] = []
         self.tiles: list[list[str]] = []
         self.rng = random.Random(self.state.terrain_seed)
+        self.show_help = True
+        self.use_color = False
         self.make_world()
+
+    def init_colors(self) -> None:
+        if not curses.has_colors():
+            return
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(COLOR_DEFAULT, curses.COLOR_WHITE, -1)
+        curses.init_pair(COLOR_WATER, curses.COLOR_CYAN, -1)
+        curses.init_pair(COLOR_TREE, curses.COLOR_GREEN, -1)
+        curses.init_pair(COLOR_ORE, curses.COLOR_MAGENTA, -1)
+        curses.init_pair(COLOR_COIN, curses.COLOR_YELLOW, -1)
+        curses.init_pair(COLOR_PLAYER, curses.COLOR_BLUE, -1)
+        curses.init_pair(COLOR_ENEMY, curses.COLOR_RED, -1)
+        self.use_color = True
+
+    def style_for_tile(self, ch: str) -> int:
+        if not self.use_color:
+            return curses.A_NORMAL
+        palette = {
+            "~": curses.color_pair(COLOR_WATER),
+            "T": curses.color_pair(COLOR_TREE),
+            "O": curses.color_pair(COLOR_ORE),
+            "$": curses.color_pair(COLOR_COIN) | curses.A_BOLD,
+            "@": curses.color_pair(COLOR_PLAYER) | curses.A_BOLD,
+            "g": curses.color_pair(COLOR_ENEMY) | curses.A_BOLD,
+            ".": curses.color_pair(COLOR_DEFAULT),
+        }
+        return palette.get(ch, curses.color_pair(COLOR_DEFAULT))
 
     def make_world(self) -> None:
         self.rng = random.Random(self.state.terrain_seed)
@@ -84,18 +123,30 @@ class SandboxGame:
         )
         stdscr.addstr(0, 0, hud[: MAP_W + 25])
         stdscr.addstr(1, 0, self.msg[: MAP_W + 25])
+        legend = "Legend: @ you  g enemy  ~ water  T tree  O ore  $ coins  . path"
+        stdscr.addstr(2, 0, legend[: MAP_W + 25])
 
         enemy_positions = {(e.x, e.y): e for e in self.enemies}
         for y in range(MAP_H):
-            row_chars: list[str] = []
             for x in range(MAP_W):
                 if (x, y) == (self.state.x, self.state.y):
-                    row_chars.append("@")
+                    ch = "@"
                 elif (x, y) in enemy_positions:
-                    row_chars.append("g")
+                    ch = "g"
                 else:
-                    row_chars.append(self.tiles[y][x])
-            stdscr.addstr(3 + y, 0, "".join(row_chars))
+                    ch = self.tiles[y][x]
+                stdscr.addch(MAP_TOP + y, x, ch, self.style_for_tile(ch))
+        if self.show_help:
+            help_lines = [
+                "How to play (press H to hide/show):",
+                "1) Explore and collect: walk onto T/O/$ tiles to gather resources.",
+                "2) Fight nearby enemies with SPACE to earn score and coins.",
+                "3) Craft with C: heal (3 wood + 1 ore) or armor (2 wood + 12 coins).",
+                "4) Survive waves, press N for a new zone after clearing enemies.",
+                "5) Save with P, load with L, and quit with Q.",
+            ]
+            for idx, line in enumerate(help_lines):
+                stdscr.addstr(MAP_TOP + MAP_H + 1 + idx, 0, line[: MAP_W + 25])
         stdscr.refresh()
 
     def can_walk(self, x: int, y: int) -> bool:
@@ -233,11 +284,16 @@ class SandboxGame:
         elif key in (ord("p"), ord("P")):
             self.save()
         elif key in (ord("h"), ord("H")):
-            self.msg = "Move: arrows/WASD | Attack: space | Craft: C | New zone: N | Save: P | Load: L"
+            self.show_help = not self.show_help
+            if self.show_help:
+                self.msg = "Help is now ON. Follow the 1-5 guide below the map."
+            else:
+                self.msg = "Help is now OFF. Press H any time to bring it back."
         return True
 
     def loop(self, stdscr: curses.window) -> None:
         curses.curs_set(0)
+        self.init_colors()
         stdscr.nodelay(True)
         stdscr.timeout(100)
 
@@ -251,7 +307,7 @@ class SandboxGame:
             time.sleep(0.03)
 
         self.draw(stdscr)
-        stdscr.addstr(3 + MAP_H + 1, 0, f"Game over. Final score: {self.state.score}. Press any key.")
+        stdscr.addstr(MAP_TOP + MAP_H + 7, 0, f"Game over. Final score: {self.state.score}. Press any key.")
         stdscr.nodelay(False)
         stdscr.getch()
 
