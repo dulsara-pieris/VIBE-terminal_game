@@ -66,6 +66,7 @@ class ArcadeGame:
         self.fire_dx, self.fire_dy = 1, 0
         self.ticks = 0
         self.invuln_ticks = 0
+        self.streak = 0
 
     def init_colors(self) -> None:
         if not curses.has_colors():
@@ -135,30 +136,39 @@ class ArcadeGame:
         self.bullets = updated
 
     def update_enemies(self) -> None:
+        occupied = {(enemy.x, enemy.y) for enemy in self.enemies}
         for enemy in self.enemies:
+            occupied.discard((enemy.x, enemy.y))
             dx = self.state.x - enemy.x
             dy = self.state.y - enemy.y
             step_x = 0 if dx == 0 else (1 if dx > 0 else -1)
             step_y = 0 if dy == 0 else (1 if dy > 0 else -1)
             if abs(dx) > abs(dy):
-                enemy.x += step_x
+                nx, ny = enemy.x + step_x, enemy.y
             else:
-                enemy.y += step_y
+                nx, ny = enemy.x, enemy.y + step_y
+            if (nx, ny) != (self.state.x, self.state.y) and (nx, ny) not in occupied:
+                enemy.x, enemy.y = nx, ny
+            occupied.add((enemy.x, enemy.y))
 
     def handle_collisions(self) -> None:
-        bullet_positions = {(b.x, b.y): b for b in self.bullets}
+        bullet_positions = {(b.x, b.y) for b in self.bullets}
         survivors: list[Enemy] = []
         kills = 0
+        hit_positions: set[tuple[int, int]] = set()
         for enemy in self.enemies:
             if (enemy.x, enemy.y) in bullet_positions:
                 kills += 1
+                hit_positions.add((enemy.x, enemy.y))
             else:
                 survivors.append(enemy)
         if kills:
-            self.state.score += kills * 10
-            self.msg = f"Boom! {kills} enemy down."
+            self.streak += kills
+            bonus = min(5, self.streak) * 2
+            self.state.score += kills * (10 + bonus)
+            self.msg = f"Boom! {kills} down. Streak x{self.streak}."
         self.enemies = survivors
-        self.bullets = [b for b in self.bullets if (b.x, b.y) not in {(e.x, e.y) for e in self.enemies}]
+        self.bullets = [b for b in self.bullets if (b.x, b.y) not in hit_positions]
 
         for heart in list(self.hearts):
             if (heart.x, heart.y) == (self.state.x, self.state.y):
@@ -172,6 +182,7 @@ class ArcadeGame:
             if (enemy.x, enemy.y) == (self.state.x, self.state.y):
                 self.state.hp -= 1
                 self.invuln_ticks = 10
+                self.streak = 0
                 self.msg = "You got hit! Keep moving."
                 break
 
@@ -229,7 +240,7 @@ class ArcadeGame:
         stdscr.erase()
         hud = f"HP {self.state.hp}/{self.state.max_hp} | Score {self.state.score} | Wave {self.state.wave} | Enemies {len(self.enemies)}"
         stdscr.addstr(0, 0, hud[: MAP_W + 25])
-        stdscr.addstr(1, 0, self.msg[: MAP_W + 25])
+        stdscr.addstr(1, 0, f"{self.msg} | Streak {self.streak}"[: MAP_W + 25])
 
         for x in range(MAP_W):
             stdscr.addch(MAP_TOP, x, "#")
